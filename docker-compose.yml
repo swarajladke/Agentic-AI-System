@@ -1,0 +1,38 @@
+version: "3.9"
+
+services:
+  redis:
+    image: redis:7.4-alpine
+    container_name: agentic-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agentic-app
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: claude-sonnet-4-20250514
+      BATCH_SIZE: 5
+      BATCH_WINDOW_SECONDS: 2
+      STREAM_BLOCK_MS: 3000
+      CLAIM_IDLE_MS: 30000
+    ports:
+      - "8000:8000"
+    command: >
+      uvicorn main:app
+      --host 0.0.0.0
+      --port 8000
+      --workers 1
